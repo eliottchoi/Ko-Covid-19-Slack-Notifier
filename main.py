@@ -1,34 +1,60 @@
+import requests
 import json
+import xmltodict
 import time
 
-import requests
-import xmltodict
 
 URL = 'http://openapi.data.go.kr/openapi/service/rest/Covid19/getCovid19InfStateJson'
 apiKey = 'jFxpmC%2Bk9OAuwelQlbTO2FMrhk4OGi%2BxyCFujfUbU%2F%2Bn2qJLMPW02PtKKIxvgSMb6oADdw4BYOLBX4BEobUCog%3D%3D'
 decodedApiKey = requests.utils.unquote(apiKey)
-now = time.localtime()
-now_ymd = time.strftime('%Y%m%d', now)
+now_raw = time.localtime()
+now_year_month_date = int(time.strftime('%Y%m%d', now_raw))
 
-payload = {'ServiceKey': decodedApiKey, 'pageNo': '1', 'numOfRows': '10', 'startCreateDt': str(int(now_ymd)-1), 'endCreateDt': now_ymd}
+payload = {
+    'ServiceKey': decodedApiKey,
+    'pageNo': '1',
+    'numOfRows': '10',
+    'startCreateDt': now_year_month_date-1,
+    'endCreateDt': now_year_month_date
+}
 
 r = requests.get(URL, params=payload)
 
 covid_string = json.dumps(xmltodict.parse(r.text), indent=4, sort_keys=True)
 covid_json = json.loads(covid_string)
+
 covid_items = covid_json["response"]["body"]["items"]["item"]
+today_covid = covid_items[0]
+yesterday_covid = covid_items[1]
+result_code = int(covid_json["response"]["header"]["resultCode"])
+total_count = int(covid_json["response"]["body"]["totalCount"])
+last_notified = int(today_covid["stateDt"])
 
-today_decideCnt = int(covid_items[0]["decideCnt"])
-yesterday_decideCnt = int(covid_items[1]["decideCnt"])
+if len(covid_json) == 0:
+    print("서버와 통신하지 못했습니다.")
+    exit()
+elif result_code != 0:
+    print("받아오지 못했습니다.")
+    exit()
+elif total_count == 0:
+    print("출력할 항목이 없습니다.")
+    exit()
+elif last_notified != now_year_month_date:
+    print("아직 오늘 확진자가 발표되지 않았습니다. 조금 뒤 다시 시도해주세요!")
+    exit()
 
-today_examCnt = int(covid_items[0]["examCnt"])
-yesterday_examCnt = int(covid_items[1]["examCnt"])
 
-today_clearCnt = int(covid_items[0]["clearCnt"])
-yesterday_clearCnt = int(covid_items[1]["clearCnt"])
+today_decideCnt = int(today_covid["decideCnt"])
+yesterday_decideCnt = int(yesterday_covid["decideCnt"])
 
-today_deathCnt = int(covid_items[0]["deathCnt"])
-yesterday_deathCnt = int(covid_items[1]["deathCnt"])
+today_examCnt = int(today_covid["examCnt"])
+yesterday_examCnt = int(yesterday_covid["examCnt"])
+
+today_clearCnt = int(today_covid["clearCnt"])
+yesterday_clearCnt = int(yesterday_covid["clearCnt"])
+
+today_deathCnt = int(today_covid["deathCnt"])
+yesterday_deathCnt = int(yesterday_covid["deathCnt"])
 
 
 def decidecount():
@@ -70,10 +96,6 @@ def deathcount():
         print("총 사망자 수:", today_deathCnt, "명 | 🔻", minus)
     else:
         print("총 사망자 수:", today_deathCnt, "명")
-
-print()
-print("오늘의 코로나 현황을 알려드립니다.")
-print()
 
 decidecount()
 examcount()
