@@ -5,7 +5,11 @@ import time
 
 
 URL = 'http://openapi.data.go.kr/openapi/service/rest/Covid19/getCovid19InfStateJson'
-apiKey = 'jFxpmC%2Bk9OAuwelQlbTO2FMrhk4OGi%2BxyCFujfUbU%2F%2Bn2qJLMPW02PtKKIxvgSMb6oADdw4BYOLBX4BEobUCog%3D%3D'
+with open('config.json', 'r') as f:
+    config = json.load(f)
+
+apiKey = config['DEFAULT']['API_KEY']
+
 decodedApiKey = requests.utils.unquote(apiKey)
 now_raw = time.localtime()
 now_year_month_date = int(time.strftime('%Y%m%d', now_raw))
