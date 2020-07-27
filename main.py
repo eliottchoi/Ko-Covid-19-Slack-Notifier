@@ -4,7 +4,7 @@ import xmltodict
 import time
 
 
-URL = 'http://openapi.data.go.kr/openapi/service/rest/Covid19/getCovid19InfStateJson'
+url = 'http://openapi.data.go.kr/openapi/service/rest/Covid19/getCovid19InfStateJson'
 with open('config.json', 'r') as f:
     config = json.load(f)
 
@@ -22,86 +22,54 @@ payload = {
     'endCreateDt': now_year_month_date
 }
 
-r = requests.get(URL, params=payload)
+full_url = requests.get(url, params=payload)
 
-covid_string = json.dumps(xmltodict.parse(r.text), indent=4, sort_keys=True)
+covid_string = json.dumps(xmltodict.parse(full_url.text), indent=4, sort_keys=True)
 covid_json = json.loads(covid_string)
 
-covid_items = covid_json["response"]["body"]["items"]["item"]
-today_covid = covid_items[0]
-yesterday_covid = covid_items[1]
-result_code = int(covid_json["response"]["header"]["resultCode"])
-total_count = int(covid_json["response"]["body"]["totalCount"])
-last_notified = int(today_covid["stateDt"])
+response_result = covid_json["response"]
 
-if len(covid_json) == 0:
-    print("서버와 통신하지 못했습니다.")
+result_code = int(response_result["header"]["resultCode"])
+result_days = int(response_result["body"]["totalCount"])
+
+covid_items = response_result["body"]["items"]["item"]
+
+today_covid_info = None
+yesterday_covid_info = None
+
+
+if 1 < len(covid_items) < 10:
+    today_covid_info = covid_items[0]
+    yesterday_covid_info = covid_items[1]
+elif len(covid_json) == 0 or result_code != 0:
+    error_message = "서버와 통신하지 못했습니다."
+    print(error_message)
     exit()
-elif result_code != 0:
-    print("받아오지 못했습니다.")
-    exit()
-elif total_count == 0:
-    print("출력할 항목이 없습니다.")
-    exit()
-elif last_notified != now_year_month_date:
-    print("아직 오늘 확진자가 발표되지 않았습니다. 조금 뒤 다시 시도해주세요!")
+elif result_days < 2:
+    error_message = "아직 오늘 확진자가 발표되지 않았습니다. 오전 11시에 다시 시도해주세요!"
+    print(error_message)
     exit()
 
+today_total_cases = int(today_covid_info["decideCnt"])
+yesterday_total_cases = int(yesterday_covid_info["decideCnt"])
 
-today_decideCnt = int(today_covid["decideCnt"])
-yesterday_decideCnt = int(yesterday_covid["decideCnt"])
+today_performing_tests = int(today_covid_info["examCnt"])
+yesterday_performed_tests = int(yesterday_covid_info["examCnt"])
 
-today_examCnt = int(today_covid["examCnt"])
-yesterday_examCnt = int(yesterday_covid["examCnt"])
+today_recovered = int(today_covid_info["clearCnt"])
+yesterday_recovered = int(yesterday_covid_info["clearCnt"])
 
-today_clearCnt = int(today_covid["clearCnt"])
-yesterday_clearCnt = int(yesterday_covid["clearCnt"])
+today_deaths = int(today_covid_info["deathCnt"])
+yesterday_deaths = int(yesterday_covid_info["deathCnt"])
 
-today_deathCnt = int(today_covid["deathCnt"])
-yesterday_deathCnt = int(yesterday_covid["deathCnt"])
+date_last_report = today_covid_info["createDt"]
+
+def get_increasement(today, yesterday):
+    increasement = today - yesterday
+    return increasement
 
 
-def decidecount():
-    if today_decideCnt > yesterday_decideCnt:
-        plus = today_decideCnt - yesterday_decideCnt
-        print("총 확진환자 수:", today_decideCnt, "명 | 🔺", plus)
-    elif today_decideCnt < yesterday_decideCnt:
-        minus = yesterday_decideCnt - today_decideCnt
-        print("총 확진환자 수:", today_decideCnt, "명 | 🔻", minus)
-    else:
-        print("총 확진환자 수:", today_decideCnt, "명")
-
-def examcount():
-    if today_examCnt > yesterday_examCnt:
-        plus = today_examCnt - yesterday_examCnt
-        print("검사진행 수:", today_examCnt, "명 | 🔺", plus)
-    elif today_examCnt < yesterday_examCnt:
-        minus = yesterday_examCnt - today_examCnt
-        print("검사진행 수:", today_examCnt, "명 | 🔻", minus)
-    else:
-        print("검사진행 수:", today_examCnt, "명")
-
-def clearcount():
-    if today_clearCnt > yesterday_clearCnt:
-        plus = today_clearCnt - yesterday_clearCnt
-        print("총 완치자 수:", today_clearCnt, "명 | 🔺", plus)
-    elif today_clearCnt < yesterday_clearCnt:
-        minus = yesterday_clearCnt - today_clearCnt
-        print("총 완치자 수:", today_clearCnt, "명 | 🔻", minus)
-    else:
-        print("총 완치자 수:", today_clearCnt, "명")
-
-def deathcount():
-    if today_deathCnt > yesterday_deathCnt:
-        plus = today_deathCnt - yesterday_deathCnt
-        print("총 사망자 수:", today_deathCnt, "명 | 🔺", plus)
-    elif today_deathCnt < yesterday_deathCnt:
-        minus = yesterday_deathCnt - today_deathCnt
-        print("총 사망자 수:", today_deathCnt, "명 | 🔻", minus)
-    else:
-        print("총 사망자 수:", today_deathCnt, "명")
-
-decidecount()
-examcount()
-clearcount()
-deathcount()
+today_increased_cases = get_increasement(today_total_cases, yesterday_total_cases)
+today_increased_performing_tests = get_increasement(today_performing_tests, yesterday_performed_tests)
+today_increased_recovered = get_increasement(today_recovered, yesterday_recovered)
+today_increased_deaths = get_increasement(today_deaths, yesterday_deaths)
